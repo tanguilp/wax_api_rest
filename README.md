@@ -1,6 +1,6 @@
 # WaxAPIREST
 
-**TODO: Add description**
+WIP
 
 ## Installation
 
