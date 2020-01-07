@@ -5,8 +5,6 @@ defmodule WaxAPIREST.Types.AuthenticatorSelectionCriteria do
     UserVerificationRequirement
   }
 
-  @derive Jason.Encoder
-
   defstruct [
     :authenticatorAttachment,
     :residentKey,

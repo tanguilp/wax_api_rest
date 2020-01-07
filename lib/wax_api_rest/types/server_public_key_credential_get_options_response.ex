@@ -5,8 +5,6 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
     UserVerificationRequirement
   }
 
-  @derive Jason.Encoder
-
   @enforce_keys [:challenge]
 
   defstruct [
@@ -16,6 +14,8 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
     :extensions,
     allowCredentials: [],
     userVerification: "preferred",
+    status: "ok",
+    errorMessage: ""
   ]
 
   @type t :: %__MODULE__{
@@ -53,7 +53,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
       end
 
     %__MODULE__{
-      challenge: Base.url_encode64(challenge.bytes),
+      challenge: Base.url_encode64(challenge.bytes, padding: false),
       timeout: challenge.timeout,
       rpId: challenge.rp_id,
       extensions: nil,

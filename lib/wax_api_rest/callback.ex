@@ -42,23 +42,27 @@ defmodule WaxAPIREST.Callback do
   #FIXME: shall we just provide with the conn and not the second param? The risk is that
   # relying on request is not safe if the username is not checked against the session, an
   # OAuth2 token or any other mechanism
-  @callback user_info(Plug.Conn.t(), ServerPublicKeyCredentialCreationOptionsRequest) ::
-  user_info()
-  | no_return()
+  @callback user_info(
+    conn :: Plug.Conn.t(),
+    attestation_request :: ServerPublicKeyCredentialCreationOptionsRequest
+  ) :: user_info() | no_return()
 
   @doc """
   Returns the user keys
 
-  Each key can be either a single key identifier or a `{key_identifier, [transport]}` tuple.
+  Each key can be either a single key or a `{cose_key, [transport]}` tuple.
 
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback user_keys(Plug.Conn.t(), ServerPublicKeyCredentialGetOptionsRequest.t()) ::
+  @callback user_keys(
+    conn :: Plug.Conn.t(),
+    attestation_request :: ServerPublicKeyCredentialGetOptionsRequest.t()
+  ) ::
   %{
-    optional(String.t()) =>
-      id :: String.t()
-      | {id :: String.t, transports :: [AuthenticatorTransport.t()]}
+    optional(key_id :: Wax.CredentialId.t()) =>
+      cose_key :: Wax.CoseKey.t()
+      | {cose_key :: Wax.CoseKey.t(), transports :: [AuthenticatorTransport.t()]}
   }
 
   @doc """
@@ -67,7 +71,7 @@ defmodule WaxAPIREST.Callback do
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback put_challenge(Plug.Conn.t(), Wax.Challenge.t()) ::
+  @callback put_challenge(conn :: Plug.Conn.t(), challenge :: Wax.Challenge.t()) ::
   Plug.Conn.t()
   | no_return()
 
@@ -77,7 +81,7 @@ defmodule WaxAPIREST.Callback do
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback get_challenge(Plug.Conn.t()) :: Wax.Challenge.t() | no_return()
+  @callback get_challenge(conn :: Plug.Conn.t()) :: Wax.Challenge.t() | no_return()
 
   @doc """
   Saves a new attestation key for a user
@@ -91,7 +95,7 @@ defmodule WaxAPIREST.Callback do
   `Base.encode64/1` if the database doesn't accept binary values).
 
   The signature count can also be checked against the value saved in the database:
-  
+
       authenticator_data.sign_count
 
   A single user can register several keys. Each key is identified by its `key_id`.
@@ -102,7 +106,10 @@ defmodule WaxAPIREST.Callback do
   JSON error response.
   """
   @callback register_key(
-    Plug.Conn.t(), key_id :: String.t(), Wax.AuthenticatorData.t(), Wax.Attestation.result()
+    conn :: Plug.Conn.t(),
+    key_id :: String.t(),
+    authenticator_data :: Wax.AuthenticatorData.t(),
+    attestation_result :: Wax.Attestation.result()
   ) :: Plug.Conn.t() | no_return()
 
   @doc """
@@ -113,7 +120,8 @@ defmodule WaxAPIREST.Callback do
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback on_authentication_success(Plug.Conn.t(), Wax.AuthenticatorData.t()) ::
-  Plug.Conn.t()
-  | no_return()
+  @callback on_authentication_success(
+    conn :: Plug.Conn.t(),
+    authenticator_data :: Wax.AuthenticatorData.t()
+  ) ::  Plug.Conn.t() | no_return()
 end

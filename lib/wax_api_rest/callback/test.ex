@@ -10,7 +10,7 @@ defmodule WaxAPIREST.Callback.Test do
   - creates an ETS table on the fly, whose heir is the root supervisor
   """
 
-  @cookie_name "toto"
+  @cookie_name "fido_test_suite"
 
   @behaviour WaxAPIREST.Callback
 
@@ -23,12 +23,16 @@ defmodule WaxAPIREST.Callback.Test do
 
   @impl true
   def put_challenge(conn, challenge) do
-    Plug.Conn.put_session(conn, :wax_api_rest_challenge, challenge)
+    conn
+    |> Plug.Conn.fetch_session()
+    |> Plug.Conn.put_session(:wax_api_rest_challenge, challenge)
   end
 
   @impl true
   def get_challenge(conn) do
-    Plug.Conn.get_session(conn, :wax_api_rest_challenge) || raise "Challenge not found in session"
+    conn
+    |> Plug.Conn.fetch_session()
+    |> Plug.Conn.get_session(:wax_api_rest_challenge) || raise "Challenge not found in session"
   end
 
   @impl true
@@ -64,7 +68,7 @@ defmodule WaxAPIREST.Callback.Test do
     conn
   end
 
-  defp setup_table() do
+  def setup_table() do
     case :ets.info(__MODULE__) do
       :undefined ->
         :ets.new(__MODULE__, [:named_table, :bag, :public, {:heir, root_pid(), []}])

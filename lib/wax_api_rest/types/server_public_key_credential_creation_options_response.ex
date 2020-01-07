@@ -9,13 +9,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
     ServerPublicKeyCredentialUserEntity
   }
 
-  @default_pub_key_creds_params [
-    {"public-key", -36},
-    {"public-key", -35},
-    {"public-key", -7}
-  ]
-
-  @derive Jason.Encoder
+  @default_pub_key_creds_params [-36, -35, -7]
 
   @enforce_keys [:rp, :user, :challenge, :pubKeyCredParams]
 
@@ -28,7 +22,9 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
     :authenticatorSelection,
     :extensions,
     excludeCredentials: [],
-    attestation: "none"
+    attestation: "none",
+    status: "ok",
+    errorMessage: ""
   ]
 
   @type t :: %__MODULE__{
@@ -65,28 +61,34 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
       end
 
     attestation =
-      Application.get_env(:wax_api_rest, :attestation_conveyance_preference)
-      || opts[:attestation_conveyance_preference]
+      opts[:attestation_conveyance_preference]
+      || Application.get_env(WaxAPIREST, :attestation_conveyance_preference)
       || request.attestation
       || "none"
 
     %__MODULE__{
       rp: PublicKeyCredentialRpEntity.new(
-        opts[:rp_name] || Application.get_env(:wax_api_rest, :rp_name) || challenge.rp_id,
+        opts[:rp_name] || Application.get_env(WaxAPIREST, :rp_name) || challenge.rp_id,
         challenge.rp_id
       ),
       user: ServerPublicKeyCredentialUserEntity.new(
         user_info[:name] || request.username,
         user_info[:id],
-        user_info[:display_name] || request.display_name
+        user_info[:display_name] || request.displayName
       ),
-      challenge: Base.url_encode64(challenge.bytes),
+      challenge: Base.url_encode64(challenge.bytes, padding: false),
       pubKeyCredParams: (
         opts[:pub_key_cred_params]
-        || Application.get_env(:wax_api_rest, :pub_key_cred_params)
+        || Application.get_env(WaxAPIREST, :pub_key_cred_params)
         || @default_pub_key_creds_params
         )
-        |> Enum.map(fn {type, alg} -> PubKeyCredParams.new(type, alg) end),
+        |> Enum.map(fn
+          alg when is_integer(alg) ->
+            PubKeyCredParams.new(alg)
+
+          {type, alg} ->
+            PubKeyCredParams.new(type, alg)
+        end),
       timeout: challenge.timeout,
       authenticatorSelection:
         if request.authenticatorSelection do

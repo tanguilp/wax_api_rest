@@ -1,8 +1,6 @@
 defmodule WaxAPIREST.Types.PublicKeyCredentialRpEntity do
   @enforce_keys [:name]
 
-  @derive Jason.Encoder
-
   defstruct [
     :name,
     :id
