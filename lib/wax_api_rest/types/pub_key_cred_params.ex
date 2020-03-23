@@ -17,7 +17,7 @@ defmodule WaxAPIREST.Types.PubKeyCredParams do
   }
 
   @spec new(PublicKeyCredentialType.t(), Wax.CoseKey.cose_alg()) :: t()
-  def new(type \\ "public-key", alg) do
+  def new(type \\ "public-key", alg) when is_integer(alg) do
     cose_algs = Wax.CoseKey.supported_algs() |> Map.keys()
 
     if alg in cose_algs do

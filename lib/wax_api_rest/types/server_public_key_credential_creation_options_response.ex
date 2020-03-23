@@ -46,20 +46,6 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
     Keyword.t()
   ) :: t()
   def new(request, challenge, user_info, opts) do
-    exclude_credentials =
-      if user_info[:exclude_credentials] do
-        Enum.map(
-          user_info[:exclude_credentials],
-          fn
-            id when is_binary(id) ->
-              ServerPublicKeyCredentialDescriptor.new(id)
-
-            {id, transports} ->
-              ServerPublicKeyCredentialDescriptor.new(id, transports)
-          end
-        )
-      end
-
     attestation =
       opts[:attestation_conveyance_preference]
       || Application.get_env(WaxAPIREST, :attestation_conveyance_preference)
@@ -97,7 +83,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
           }
         end,
       extensions: nil,
-      excludeCredentials: exclude_credentials,
+      excludeCredentials: opts[:exclude_credentials] || [],
       attestation: attestation
     }
   end

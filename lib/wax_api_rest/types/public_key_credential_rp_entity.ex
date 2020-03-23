@@ -12,7 +12,10 @@ defmodule WaxAPIREST.Types.PublicKeyCredentialRpEntity do
   }
 
   @spec new(String.t(), String.t() | nil) :: t()
-  def new(name, id \\ nil) do
+  def new(name, id \\ nil) when
+    is_binary(name) and
+    (is_binary(id) or id == nil)
+  do
     %__MODULE__{
       name: name,
       id: id

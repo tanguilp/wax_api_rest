@@ -29,7 +29,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialDescriptor do
   | {id :: String.t(), [AuthenticatorTransport.t()]}
 
   @spec new(String.t(), [AuthenticatorTransport.t()] | nil) :: t()
-  def new(id, transports \\ nil) do
+  def new(id, transports \\ nil) when is_binary(id) do
     %__MODULE__{
       type: PublicKeyCredentialType.new("public-key"),
       id: id,

@@ -6,15 +6,19 @@ defmodule WaxAPIREST.Callback do
   alias WaxAPIREST.Types.{
     AuthenticatorTransport,
     ServerPublicKeyCredentialCreationOptionsRequest,
-    ServerPublicKeyCredentialDescriptor,
     ServerPublicKeyCredentialGetOptionsRequest
   }
+
+  @typedoc """
+  User information
+
+  The returned `id` field must be URL base64 encoded no longer than 64 bytes.
+  """
 
   @type user_info :: %{
     required(:id) => String.t(),
     optional(:name) => String.t(),
-    optional(:display_name) => String.t(),
-    optional(:exclude_credentials) => [ServerPublicKeyCredentialDescriptor.flat()]
+    optional(:display_name) => String.t()
   }
 
   @doc """
@@ -71,9 +75,13 @@ defmodule WaxAPIREST.Callback do
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback put_challenge(conn :: Plug.Conn.t(), challenge :: Wax.Challenge.t()) ::
-  Plug.Conn.t()
-  | no_return()
+  @callback put_challenge(
+    conn :: Plug.Conn.t(),
+    challenge :: Wax.Challenge.t(),
+    request :: 
+      ServerPublicKeyCredentialCreationOptionsRequest.t()
+      | ServerPublicKeyCredentialGetOptionsRequest.t()
+  ) :: Plug.Conn.t() | no_return()
 
   @doc """
   Returns the current challenge

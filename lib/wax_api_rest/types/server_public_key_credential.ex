@@ -31,7 +31,22 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredential do
     "rawId" => rawId,
     "response" => response,
     "type" => "public-key" = type
-  } = request) do
+  } = request) when
+    is_binary(id) and
+    is_binary(rawId) and
+    id == rawId
+  do
+    case Base.url_decode64(id, padding: false) do
+      {:ok, _} ->
+        :ok
+
+      :eror ->
+        raise Error.InvalidField,
+          field: "id",
+          value: id,
+          reason: "must be url-base64 encoded without padding"
+    end
+
     %__MODULE__{
       id: id,
       rawId: rawId,
@@ -46,10 +61,21 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredential do
     }
   end
 
-  def new(request) do
-    if request["id"] == nil, do: raise Error.MissingField, field: "id"
+  def new(%{"id" => _, "rawId" => rawId}) do
+    raise Error.InvalidField,
+      field: "rawId",
+      value: rawId,
+      reason: "must have the same value as `id`"
+  end
 
-    if request["rawId"] == nil, do: raise Error.MissingField, field: "rawId"
+  def new(request) do
+    if request["id"] == nil or not is_binary(request["id"]) do
+      raise Error.MissingField, field: "id"
+    end
+
+    if request["rawId"] == nil or not is_binary(request["rawId"]) do
+      raise Error.MissingField, field: "rawId"
+    end
 
     if request["type"] == nil, do: raise Error.MissingField, field: "type"
 

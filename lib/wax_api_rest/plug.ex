@@ -85,35 +85,48 @@ defmodule WaxAPIREST.Plug do
   If an configuration option is not provided, it falls back to a default value.
   """
   @type opt ::
-  {:callback, module()}
+  {:callback_module, module()}
   | {:rp_name, String.t()}
   | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
   | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
 
-  plug(:match)
-  plug(:dispatch)
+  plug :match
+  plug :dispatch, builder_opts()
   plug Plug.Parsers, parsers: [:json], json_decoder: Jason
 
   post "/attestation/options" do
     callback_module = callback_module(opts)
 
-    request = ServerPublicKeyCredentialCreationOptionsRequest.new(conn.body_params)
+    creation_request = ServerPublicKeyCredentialCreationOptionsRequest.new(conn.body_params)
 
     challenge = Wax.new_registration_challenge([
+      attestation: creation_request.attestation,
       user_verified_required: Application.get_env(:wax, :user_verified_required)
     ])
 
-    user_info = callback_module.user_info(conn, request)
+    user_info = callback_module.user_info(conn, creation_request)
+
+    exclude_credentials =
+      callback_module.user_keys(conn, creation_request)
+      |> Enum.map(
+        fn
+          {key_id, %{} = _cose_key} ->
+            ServerPublicKeyCredentialDescriptor.new(key_id)
+
+          {key_id, {_cose_key, transports}} ->
+            ServerPublicKeyCredentialDescriptor.new(key_id, transports)
+        end
+      )
 
     response = ServerPublicKeyCredentialCreationOptionsResponse.new(
-      request,
+      creation_request,
       challenge,
       user_info,
-      opts
+      Keyword.put(opts, :exclude_credentials, exclude_credentials)
     )
 
     conn
-    |> callback_module.put_challenge(challenge)
+    |> callback_module.put_challenge(challenge, creation_request)
     |> send_json(200, response)
   end
 
@@ -122,16 +135,21 @@ defmodule WaxAPIREST.Plug do
 
     challenge = callback_module.get_challenge(conn)
 
-    request = ServerPublicKeyCredential.new(conn.body_params)
+    registration_request = ServerPublicKeyCredential.new(conn.body_params)
 
     Wax.register(
-      Base.url_decode64!(request.response.attestationObject, padding: false),
-      Base.url_decode64!(request.response.clientDataJSON, padding: false),
+      Base.url_decode64!(registration_request.response.attestationObject, padding: false),
+      Base.url_decode64!(registration_request.response.clientDataJSON, padding: false),
       challenge
     )
     |> case do
       {:ok, {authenticator_data, attestation_result}} ->
-        callback_module.register_key(conn, request.rawId, authenticator_data, attestation_result)
+        callback_module.register_key(
+          conn,
+          registration_request.rawId,
+          authenticator_data,
+          attestation_result
+        )
         |> send_json(200, %{
           "status" => "ok",
           "errorMessage" => ""
@@ -148,14 +166,14 @@ defmodule WaxAPIREST.Plug do
   post "/assertion/options" do
     callback_module = callback_module(opts)
 
-    request = ServerPublicKeyCredentialGetOptionsRequest.new(conn.body_params)
+    creation_request = ServerPublicKeyCredentialGetOptionsRequest.new(conn.body_params)
 
-    keys = callback_module.user_keys(conn, request)
+    keys = callback_module.user_keys(conn, creation_request)
 
     challenge = Wax.new_authentication_challenge(
       Enum.map(
         keys,
-        fn 
+        fn
           {key_id, %{} = cose_key} ->
             {key_id, cose_key}
 
@@ -167,14 +185,14 @@ defmodule WaxAPIREST.Plug do
     )
 
     response = ServerPublicKeyCredentialGetOptionsResponse.new(
-      request,
+      creation_request,
       challenge,
       Enum.map(keys, fn {key_id, _} -> key_id end),
       opts
     )
 
     conn
-    |> callback_module.put_challenge(challenge)
+    |> callback_module.put_challenge(challenge, creation_request)
     |> send_json(200, response)
   end
 
@@ -183,13 +201,13 @@ defmodule WaxAPIREST.Plug do
 
     challenge = callback_module.get_challenge(conn)
 
-    request = ServerPublicKeyCredential.new(conn.body_params)
+    registration_request = ServerPublicKeyCredential.new(conn.body_params)
 
     Wax.authenticate(
-      request.rawId,
-      Base.url_decode64!(request.response.authenticatorData, padding: false),
-      Base.url_decode64!(request.response.signature, padding: false),
-      Base.url_decode64!(request.response.clientDataJSON, padding: false),
+      registration_request.rawId,
+      Base.url_decode64!(registration_request.response.authenticatorData, padding: false),
+      Base.url_decode64!(registration_request.response.signature, padding: false),
+      Base.url_decode64!(registration_request.response.clientDataJSON, padding: false),
       challenge
     )
     |> case do

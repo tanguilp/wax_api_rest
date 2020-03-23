@@ -14,7 +14,9 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialUserEntity do
   }
 
   @spec new(String.t(), String.t(), String.t()) :: t()
-  def new(name, id, display_name) do
+  def new(name, id, display_name) when
+    is_binary(name) and is_binary(id) and is_binary(display_name)
+  do
     %__MODULE__{
       name: name,
       id: id,

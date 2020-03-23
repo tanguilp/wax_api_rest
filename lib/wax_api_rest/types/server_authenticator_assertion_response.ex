@@ -23,7 +23,12 @@ defmodule WaxAPIREST.Types.ServerAuthenticatorAssertionResponse do
     "authenticatorData" => authenticatorData,
     "signature" => signature,
     "userHandle" => userHandle
-  }) do
+  }) when
+    is_binary(clientDataJSON) and
+    is_binary(authenticatorData) and
+    is_binary(signature) and
+    is_binary(userHandle)
+  do
     %__MODULE__{
       clientDataJSON: clientDataJSON,
       authenticatorData: authenticatorData,
@@ -33,9 +38,20 @@ defmodule WaxAPIREST.Types.ServerAuthenticatorAssertionResponse do
   end
 
   def new(response) do
-    if response["clientDataJSON"] == nil, do: raise Error.MissingField, field: "clientDataJSON"
-    if response["authenticatorData"] == nil, do: raise Error.MissingField, field: "authenticatorData"
-    if response["signature"] == nil, do: raise Error.MissingField, field: "signature"
-    if response["userHandle"] == nil, do: raise Error.MissingField, field: "userHandle"
+    if response["clientDataJSON"] == nil or not is_binary(response["clientDataJSON"]) do
+      raise Error.MissingField, field: "clientDataJSON"
+    end
+
+    if response["authenticatorData"] == nil or not is_binary(response["authenticatorData"]) do
+      raise Error.MissingField, field: "authenticatorData"
+    end
+
+    if response["signature"] == nil or not is_binary(response["signature"]) do
+      raise Error.MissingField, field: "signature"
+    end
+
+    if response["userHandle"] == nil or not is_binary(response["userHandle"]) do
+      raise Error.MissingField, field: "userHandle"
+    end
   end
 end

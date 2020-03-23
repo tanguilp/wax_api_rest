@@ -17,7 +17,8 @@ defmodule WaxAPIREST.Types.ServerAuthenticatorAttestationResponse do
   def new(%{
     "clientDataJSON" => clientDataJSON,
     "attestationObject" => attestationObject
-  }) do
+  }) when is_binary(clientDataJSON) and is_binary(attestationObject)
+  do
     %__MODULE__{
       clientDataJSON: clientDataJSON,
       attestationObject: attestationObject,
@@ -25,7 +26,12 @@ defmodule WaxAPIREST.Types.ServerAuthenticatorAttestationResponse do
   end
 
   def new(response) do
-    if response["clientDataJSON"] == nil, do: raise Error.MissingField, field: "clientDataJSON"
-    if response["attestationObject"] == nil, do: raise Error.MissingField, field: "attestationObject"
+    if response["clientDataJSON"] == nil or not is_binary(response["clientDataJSON"]) do
+      raise Error.MissingField, field: "clientDataJSON"
+    end
+
+    if response["attestationObject"] == nil or not is_binary(response["attestationObject"]) do
+      raise Error.MissingField, field: "attestationObject"
+    end
   end
 end
