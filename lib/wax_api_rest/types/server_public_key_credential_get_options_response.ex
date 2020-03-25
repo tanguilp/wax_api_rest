@@ -22,7 +22,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
     challenge: String.t(),
     timeout: non_neg_integer() | nil,
     rpId: String.t() | nil,
-    extensions: map() | nil,
+    extensions: %{optional(String.t()) => any()},
     allowCredentials: [ServerPublicKeyCredentialDescriptor.t()] | nil,
     userVerification: UserVerificationRequirement.t() | nil
   }
@@ -56,7 +56,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
       challenge: Base.url_encode64(challenge.bytes, padding: false),
       timeout: challenge.timeout,
       rpId: challenge.rp_id,
-      extensions: nil,
+      extensions: request.extensions,
       allowCredentials: allow_credentials,
       userVerification: user_verification || "preferred"
     }

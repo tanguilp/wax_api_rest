@@ -34,7 +34,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
     pubKeyCredParams: [PubKeyCredParams.t()],
     timeout: non_neg_integer() | nil,
     authenticatorSelection: AuthenticatorSelectionCriteria.t() | nil,
-    extensions: map() | nil,
+    extensions: %{optional(String.t()) => any()},
     excludeCredentials: [ServerPublicKeyCredentialDescriptor.t()] | nil,
     attestation: AttestationConveyancePreference.t() | nil
   }
@@ -76,13 +76,8 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsResponse do
             PubKeyCredParams.new(type, alg)
         end),
       timeout: challenge.timeout,
-      authenticatorSelection:
-        if request.authenticatorSelection do
-          %AuthenticatorSelectionCriteria{
-            request.authenticatorSelection | userVerification: challenge.user_verified_required
-          }
-        end,
-      extensions: nil,
+      authenticatorSelection: request.authenticatorSelection,
+      extensions: request.extensions,
       excludeCredentials: opts[:exclude_credentials] || [],
       attestation: attestation
     }

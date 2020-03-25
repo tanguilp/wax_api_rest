@@ -11,6 +11,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsRequest do
     :username,
     :displayName,
     :authenticatorSelection,
+    :extensions,
     attestation: "none"
   ]
 
@@ -18,6 +19,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsRequest do
     username: String.t(),
     displayName: String.t(),
     authenticatorSelection: AuthenticatorSelectionCriteria.t() | nil,
+    extensions: %{required(String.t()) => any()},
     attestation: AttestationConveyancePreference.t() | nil
   }
 
@@ -26,7 +28,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsRequest do
     when is_binary(username) and is_binary(displayName)
   do
     authenticatorSelection =
-      if request["AuthenticatorSelectionCriteria"] do
+      if request["authenticatorSelection"] do
         AuthenticatorSelectionCriteria.new(request["authenticatorSelection"])
       end
 
@@ -41,6 +43,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsRequest do
       username: username,
       displayName: displayName,
       authenticatorSelection: authenticatorSelection,
+      extensions: request["extensions"] || %{},
       attestation: attestation
     }
   end
