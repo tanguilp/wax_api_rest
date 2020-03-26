@@ -40,7 +40,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredential do
       {:ok, _} ->
         :ok
 
-      :eror ->
+      :error ->
         raise Error.InvalidField,
           field: "id",
           value: id,

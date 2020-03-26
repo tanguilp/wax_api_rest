@@ -3,23 +3,34 @@ defmodule WaxAPIREST.Callback do
   Behaviour for the callback module that implements various tasks for `WaxAPIREST.Plug`
   """
 
-  alias WaxAPIREST.Types.{
-    AuthenticatorTransport,
-    ServerPublicKeyCredentialCreationOptionsRequest,
-    ServerPublicKeyCredentialGetOptionsRequest
-  }
+  alias WaxAPIREST.Types.AuthenticatorTransport
 
   @typedoc """
   User information
 
   The returned `id` field must be URL base64 encoded no longer than 64 bytes.
   """
-
   @type user_info :: %{
     required(:id) => String.t(),
     optional(:name) => String.t(),
     optional(:display_name) => String.t()
   }
+
+  @typedoc """
+  Key data
+  """
+  @type key_data :: %{
+    required(:cose_key) => Wax.CoseKey.t(),
+    optional(:transports) => [AuthenticatorTransport.t()] | nil,
+    optional(:sign_count) => non_neg_integer()
+  }
+
+  @typedoc """
+  List of registered user keys
+  """
+  @type user_keys() ::
+  [{credential_id :: Wax.CredentialId.t(), key_data()}]
+  | %{optional(credential_id :: Wax.CredentialId.t()) => key_data()}
 
   @doc """
   Returns the user info required for WebAuthn
@@ -46,28 +57,15 @@ defmodule WaxAPIREST.Callback do
   #FIXME: shall we just provide with the conn and not the second param? The risk is that
   # relying on request is not safe if the username is not checked against the session, an
   # OAuth2 token or any other mechanism
-  @callback user_info(
-    conn :: Plug.Conn.t(),
-    attestation_request :: ServerPublicKeyCredentialCreationOptionsRequest
-  ) :: user_info() | no_return()
+  @callback user_info(conn :: Plug.Conn.t()) :: user_info() | no_return()
 
   @doc """
   Returns the user keys
 
-  Each key can be either a single key or a `{cose_key, [transport]}` tuple.
-
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback user_keys(
-    conn :: Plug.Conn.t(),
-    attestation_request :: ServerPublicKeyCredentialGetOptionsRequest.t()
-  ) ::
-  %{
-    optional(key_id :: Wax.CredentialId.t()) =>
-      cose_key :: Wax.CoseKey.t()
-      | {cose_key :: Wax.CoseKey.t(), transports :: [AuthenticatorTransport.t()]}
-  }
+  @callback user_keys(conn :: Plug.Conn.t()) :: user_keys()
 
   @doc """
   Save the current attestation or authentication challenge and returns the connection
@@ -77,10 +75,7 @@ defmodule WaxAPIREST.Callback do
   """
   @callback put_challenge(
     conn :: Plug.Conn.t(),
-    challenge :: Wax.Challenge.t(),
-    request :: 
-      ServerPublicKeyCredentialCreationOptionsRequest.t()
-      | ServerPublicKeyCredentialGetOptionsRequest.t()
+    challenge :: Wax.Challenge.t()
   ) :: Plug.Conn.t() | no_return()
 
   @doc """
@@ -115,7 +110,7 @@ defmodule WaxAPIREST.Callback do
   """
   @callback register_key(
     conn :: Plug.Conn.t(),
-    key_id :: String.t(),
+    credential_id :: Wax.CredentialId.t(),
     authenticator_data :: Wax.AuthenticatorData.t(),
     attestation_result :: Wax.Attestation.result()
   ) :: Plug.Conn.t() | no_return()
@@ -125,11 +120,14 @@ defmodule WaxAPIREST.Callback do
 
   Can be used to set a value (cookie...) in the connection.
 
+  **Signature counter** update should be performed at this step, if supported.
+
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
   @callback on_authentication_success(
     conn :: Plug.Conn.t(),
+    credential_id :: Wax.CredentialId.t(),
     authenticator_data :: Wax.AuthenticatorData.t()
   ) ::  Plug.Conn.t() | no_return()
 end

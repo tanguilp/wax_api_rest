@@ -24,7 +24,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsRequest do
       if request["userVerification"] do
         UserVerificationRequirement.new(request["userVerification"])
       else
-        "preferred"
+        UserVerificationRequirement.new("preferred")
       end
 
     %__MODULE__{

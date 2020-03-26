@@ -99,22 +99,22 @@ defmodule WaxAPIREST.Plug do
 
     creation_request = ServerPublicKeyCredentialCreationOptionsRequest.new(conn.body_params)
 
-    challenge = Wax.new_registration_challenge([
-      attestation: creation_request.attestation,
-      user_verified_required: Application.get_env(:wax, :user_verified_required)
-    ])
+    challenge =
+      opts
+      |> Keyword.put(:attestation, creation_request.attestation)
+      |> Wax.new_registration_challenge()
 
-    user_info = callback_module.user_info(conn, creation_request)
+    user_info = callback_module.user_info(conn)
 
     exclude_credentials =
-      callback_module.user_keys(conn, creation_request)
+      callback_module.user_keys(conn)
       |> Enum.map(
         fn
-          {key_id, %{} = _cose_key} ->
-            ServerPublicKeyCredentialDescriptor.new(key_id)
-
-          {key_id, {_cose_key, transports}} ->
+          {key_id, %{transports: transports}} ->
             ServerPublicKeyCredentialDescriptor.new(key_id, transports)
+
+          {key_id, _} ->
+            ServerPublicKeyCredentialDescriptor.new(key_id)
         end
       )
 
@@ -126,7 +126,7 @@ defmodule WaxAPIREST.Plug do
     )
 
     conn
-    |> callback_module.put_challenge(challenge, creation_request)
+    |> callback_module.put_challenge(challenge)
     |> send_json(200, response)
   end
 
@@ -168,21 +168,15 @@ defmodule WaxAPIREST.Plug do
 
     creation_request = ServerPublicKeyCredentialGetOptionsRequest.new(conn.body_params)
 
-    keys = callback_module.user_keys(conn, creation_request)
+    keys = callback_module.user_keys(conn)
 
-    challenge = Wax.new_authentication_challenge(
-      Enum.map(
-        keys,
-        fn
-          {key_id, %{} = cose_key} ->
-            {key_id, cose_key}
+    challenge_opts =
+      Keyword.put(opts, :user_verification, creation_request.userVerification)
 
-          {key_id, {cose_key, _transports}} ->
-            {key_id, cose_key}
-        end
-      ),
-      [user_verified_required: Application.get_env(:wax, :user_verified_required)]
-    )
+    challenge =
+      keys
+      |> Enum.map(fn {cred_id, %{cose_key: cose_key}} -> {cred_id, cose_key} end)
+      |> Wax.new_authentication_challenge(challenge_opts)
 
     response = ServerPublicKeyCredentialGetOptionsResponse.new(
       creation_request,
@@ -192,7 +186,7 @@ defmodule WaxAPIREST.Plug do
     )
 
     conn
-    |> callback_module.put_challenge(challenge, creation_request)
+    |> callback_module.put_challenge(challenge)
     |> send_json(200, response)
   end
 
@@ -201,28 +195,67 @@ defmodule WaxAPIREST.Plug do
 
     challenge = callback_module.get_challenge(conn)
 
-    registration_request = ServerPublicKeyCredential.new(conn.body_params)
+    authn_request = ServerPublicKeyCredential.new(conn.body_params)
 
     Wax.authenticate(
-      registration_request.rawId,
-      Base.url_decode64!(registration_request.response.authenticatorData, padding: false),
-      Base.url_decode64!(registration_request.response.signature, padding: false),
-      Base.url_decode64!(registration_request.response.clientDataJSON, padding: false),
+      authn_request.rawId,
+      Base.url_decode64!(authn_request.response.authenticatorData, padding: false),
+      Base.url_decode64!(authn_request.response.signature, padding: false),
+      Base.url_decode64!(authn_request.response.clientDataJSON, padding: false),
       challenge
     )
     |> case do
       {:ok, authenticator_data} ->
-        callback_module.on_authentication_success(conn, authenticator_data)
-        |> send_json(200, %{
-          "status" => "ok",
-          "errorMessage" => ""
-        })
+        user_keys = callback_module.user_keys(conn)
+
+        if sign_count_valid?(authn_request.rawId, authenticator_data, user_keys) do
+          callback_module.on_authentication_success(
+            conn,
+            authn_request.rawId,
+            authenticator_data
+          )
+          |> send_json(200, %{
+            "status" => "ok",
+            "errorMessage" => ""
+          })
+        else
+          send_json(conn, 400, %{
+            "status" => "failed",
+            "errorMessage" => "invalid sign count"
+          })
+        end
 
       {:error, reason} ->
         send_json(conn, 400, %{
           "status" => "failed",
           "errorMessage" => reason |> Atom.to_string() |> String.replace("_", " ")
         })
+    end
+  end
+
+  @spec sign_count_valid?(
+    Wax.CredentialId.t(),
+    Wax.AuthenticatorData.t(),
+    WaxAPIREST.Callback.user_keys()
+  ) :: boolean()
+  defp sign_count_valid?(raw_id, authenticator_data, user_keys) do
+    saved_sign_count =
+      Enum.find_value(
+        user_keys,
+        fn
+          {^raw_id, %{sign_count: sign_count}} ->
+            sign_count
+
+          _ -> false
+        end
+      )
+
+    new_sign_count = authenticator_data.sign_count
+
+    if saved_sign_count != nil and saved_sign_count > 0 or new_sign_count > 0 do
+      new_sign_count > saved_sign_count
+    else
+      true
     end
   end
 
@@ -234,14 +267,23 @@ defmodule WaxAPIREST.Plug do
     |> send_resp(status, body)
   end
 
-  def handle_errors(conn, %{kind: :error, reason: e, stack: _stack}) do
+  def handle_errors(conn, %{kind: _kind, reason: e, stack: _stack}) do
     error(conn, e)
   end
 
-  @spec error(Plug.Conn.t(), Exception.t()) :: Plug.Conn.t()
-  defp error(conn, e) do
+  @spec error(Plug.Conn.t(), Exception.t() | any()) :: Plug.Conn.t()
+  defp error(conn, error) do
+    message =
+      case error do
+        %_{} ->
+          Exception.message(error)
+
+        _ ->
+          to_string(error)
+      end
+
     resp =
-      %{status: "failed", errorMessage: Exception.message(e)}
+      %{status: "failed", errorMessage: message}
       |> Jason.encode!()
 
     conn
