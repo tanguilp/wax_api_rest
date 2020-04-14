@@ -8,7 +8,7 @@ defmodule WaxAPIREST.MixProject do
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      docs: [main: "WaxAPIREST.Plug"]
+      docs: [main: "readme", extras: ["README.md"]]
     ]
   end
 

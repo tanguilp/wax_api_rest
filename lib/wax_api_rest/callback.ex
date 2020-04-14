@@ -1,6 +1,10 @@
 defmodule WaxAPIREST.Callback do
   @moduledoc """
   Behaviour for the callback module that implements various tasks for `WaxAPIREST.Plug`
+
+  Note that users **shall** be authenticated in some manner when registering - relying on
+  the provided username would be insecure as it would allow an attacker to register new
+  key (and then authenticate) for any existing account.
   """
 
   alias WaxAPIREST.Types.AuthenticatorTransport
@@ -36,9 +40,9 @@ defmodule WaxAPIREST.Callback do
   Returns the user info required for WebAuthn
 
   This callback is called during attestation and authentication option request and must
-  return the identifier of the user. This identifier is the [user handle of the user account
-  entity](https://www.w3.org/TR/webauthn/#sctn-user-credential-params). As stated by the
-  [specification](https://www.w3.org/TR/webauthn/#user-handle):
+  return the identifier of the user. This identifier is the
+  [user handle of the user account entity](https://www.w3.org/TR/webauthn/#sctn-user-credential-params).
+  As stated by the [specification](https://www.w3.org/TR/webauthn/#user-handle):
 
   > A user handle is an opaque byte sequence with a maximum size of 64 bytes.
   > User handles are not meant to be displayed to users. The user handle SHOULD NOT contain
@@ -51,12 +55,9 @@ defmodule WaxAPIREST.Callback do
   `t:WaxAPIREST.Callback.user_info/0`). If not provided, it will be defaulted to the
   request's values.
 
-  If the user doesn't exist or a fault occurs when retrieving user information, an exception
-  can be raised. Its error message will be displayed in the JSON error response.
+  If the user doesn't exist or a fault occurs when retrieving user information, an
+  exception can be raised. Its error message will be displayed in the JSON error response.
   """
-  #FIXME: shall we just provide with the conn and not the second param? The risk is that
-  # relying on request is not safe if the username is not checked against the session, an
-  # OAuth2 token or any other mechanism
   @callback user_info(conn :: Plug.Conn.t()) :: user_info() | no_return()
 
   @doc """
@@ -93,8 +94,8 @@ defmodule WaxAPIREST.Callback do
 
       authenticator_data.attested_credential_data.credential_public_key
 
-  The COSE key is a map of integers (both keys and values). This can be conveniently saved in
-  Erlang / Elixir using Erlang's `term_to_binary/1` function (and possibly
+  The COSE key is a map of integers (both keys and values). This can be conveniently saved
+  in Erlang / Elixir using Erlang's `term_to_binary/1` function (and possibly
   `Base.encode64/1` if the database doesn't accept binary values).
 
   The signature count can also be checked against the value saved in the database:

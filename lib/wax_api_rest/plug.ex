@@ -10,7 +10,7 @@ defmodule WaxAPIREST.Plug do
       defmodule MyApp.Router do
         use Phoenix.Router
 
-        forward "/webauthn", WaxAPIREST.Plug
+        forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
       end
 
   If you're using `Plug.Router`:
@@ -18,7 +18,7 @@ defmodule WaxAPIREST.Plug do
       defmodule MyApp.Router do
         use Plug.Router
 
-        forward "/webauthn", to: WaxAPIREST.Plug
+        forward "/webauthn", to: WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
       end
 
   ## Callback module
@@ -26,13 +26,10 @@ defmodule WaxAPIREST.Plug do
   An implementation of the `WaxAPIREST.Callback` module must be provided as an option or
   in the configuration file.
 
-  Do not use the `WaxAPIREST.Callback.Test` implementation module at all, it is designed for
-  testing with the FIDO2 official test suite and won't even work in other contexts.
-
   ## Options
 
-  In addition to Wax's options (`t:Wax.opt/0`), the `t:opts/0` can be used specifically with this
-  plug.
+  In addition to Wax's options (`t:Wax.opt/0`), the `t:opts/0` can be used specifically
+  with this plug.
 
   For instance, using Phoenix:
 
@@ -40,7 +37,7 @@ defmodule WaxAPIREST.Plug do
         use Phoenix.Router
 
         forward "/webauthn", WaxAPIREST.Plug, [
-          callback_module: MyApp.WebAuthn,
+          callback_module: MyApp.WebAuthnCallbackModule,
           rp_name: "My site",
           pub_key_cred_params: [-36, -35, -7, -259, -258, -257] # allows RSA algs
         ]
@@ -68,21 +65,19 @@ defmodule WaxAPIREST.Plug do
 
   @typedoc """
   In addition to the Wax options, this library defines the following options:
-  - `:callback_module`: the callback module. Defaults to `WaxAPIREST.Callback.Test`
+  - `:callback_module` [**mandatory**]: the callback module, no default
   - `:rp_name`: a [human-palatable identifier for the Relying Party](https://www.w3.org/TR/webauthn/#dictdef-publickeycredentialentity).
-  If not present, defaults to the RP id (`Wax` option `rp_id`)
+  If not present, defaults to the RP id (`Wax` option `:rp_id`)
   - `:pub_key_cred_params`: the list of allowed credential algorithms. Defaults to
-  `[-36, -35, -7]` which are ES512, ES384 and ES256 in this order of precedence. These values
-  have been chosen using the following security analysis:
+  `[-36, -35, -7]` which are ES512, ES384 and ES256 in this order of precedence. These
+  values have been chosen using the following security analysis:
   [Security Concerns Surrounding WebAuthn: Don't Implement ECDAA (Yet)](https://paragonie.com/blog/2018/08/security-concerns-surrounding-webauthn-don-t-implement-ecdaa-yet)
-  - `:attestation_conveyance_preference`: the attestation conveyance preference. Defaults to
-  the value of the request or, if absent, to `"none"`
+  - `:attestation_conveyance_preference`: the attestation conveyance preference. Defaults
+  to the value of the request or, if absent, to `"none"`
 
   The options can be configured (in order of precedence):
   - through options passed as a parameter to the plug router
   - in the configuration file (under the `WaxAPIREST` key)
-
-  If an configuration option is not provided, it falls back to a default value.
   """
   @type opt ::
   {:callback_module, module()}
@@ -295,7 +290,7 @@ defmodule WaxAPIREST.Plug do
   def callback_module(opts) do
     opts[:callback_module]
     || Application.get_env(WaxAPIREST, :callback_module)
-    || WaxAPIREST.Callback.Test
+    || raise "callback module not configured"
   end
 
   defimpl Jason.Encoder, for: [
