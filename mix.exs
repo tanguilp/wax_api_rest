@@ -25,7 +25,7 @@ defmodule WaxAPIREST.MixProject do
       {:dialyxir, "~> 1.0.0-rc.4", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.19", only: :dev, runtime: false},
       {:plug, "~> 1.0"},
-      {:wax, path: "../wax"}
+      {:wax, github: "tanguilp/wax", tag: "v0.2.0"}
     ]
   end
 end
