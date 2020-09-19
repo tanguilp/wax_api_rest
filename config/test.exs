@@ -1,5 +1,5 @@
 use Mix.Config
 
-config :wax, :origin, "https://www.example.com"
+config :wax_, :origin, "https://www.example.com"
 
-config :wax, :rp_id, :auto
+config :wax_, :rp_id, :auto

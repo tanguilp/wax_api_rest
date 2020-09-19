@@ -4,7 +4,7 @@ defmodule WaxAPIREST.MixProject do
   def project do
     [
       app: :wax_api_rest,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -25,7 +25,7 @@ defmodule WaxAPIREST.MixProject do
       {:dialyxir, "~> 1.0.0-rc.4", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.19", only: :dev, runtime: false},
       {:plug, "~> 1.0"},
-      {:wax, github: "tanguilp/wax", tag: "v0.2.0"}
+      {:wax_, "~> 0.3.0"}
     ]
   end
 end

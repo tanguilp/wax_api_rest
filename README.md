@@ -16,7 +16,7 @@ callback module.
 ```elixir
 def deps do
   [
-    {:wax_api_rest, github: "tanguilp/wax_api_rest", tag: "v0.1.0"}
+    {:wax_api_rest, "~> 0.2.0"}
   ]
 end
 ```
