@@ -150,11 +150,8 @@ defmodule WaxAPIREST.Plug do
           "errorMessage" => ""
         })
 
-      {:error, reason} ->
-        send_json(conn, 400, %{
-          "status" => "failed",
-          "errorMessage" => reason |> Atom.to_string() |> String.replace("_", " ")
-        })
+      {:error, e} ->
+        send_json(conn, 400, %{"status" => "failed", "errorMessage" => Exception.message(e)})
     end
   end
 
@@ -220,11 +217,8 @@ defmodule WaxAPIREST.Plug do
           })
         end
 
-      {:error, reason} ->
-        send_json(conn, 400, %{
-          "status" => "failed",
-          "errorMessage" => reason |> Atom.to_string() |> String.replace("_", " ")
-        })
+      {:error, e} ->
+        send_json(conn, 400, %{"status" => "failed", "errorMessage" => Exception.message(e)})
     end
   end
 
