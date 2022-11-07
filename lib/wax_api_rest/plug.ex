@@ -160,20 +160,22 @@ defmodule WaxAPIREST.Plug do
 
     creation_request = ServerPublicKeyCredentialGetOptionsRequest.new(conn.body_params)
 
-    keys = callback_module.user_keys(conn)
+    allow_credentials =
+      conn
+      |> callback_module.user_keys()
+      |> Enum.map(fn {cred_id, %{cose_key: cose_key}} -> {cred_id, cose_key} end)
 
     challenge_opts =
-      Keyword.put(opts, :user_verification, creation_request.userVerification)
+      opts
+      |> Keyword.put(:user_verification, creation_request.userVerification)
+      |> Keyword.put(:allow_credentials, allow_credentials)
 
-    challenge =
-      keys
-      |> Enum.map(fn {cred_id, %{cose_key: cose_key}} -> {cred_id, cose_key} end)
-      |> Wax.new_authentication_challenge(challenge_opts)
+    challenge = Wax.new_authentication_challenge(challenge_opts)
 
     response = ServerPublicKeyCredentialGetOptionsResponse.new(
       creation_request,
       challenge,
-      Enum.map(keys, fn {key_id, _} -> key_id end),
+      Enum.map(allow_credentials, fn {key_id, _} -> key_id end),
       opts
     )
 
