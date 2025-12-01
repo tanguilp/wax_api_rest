@@ -132,9 +132,29 @@ defmodule WaxAPIREST.Plug do
 
     registration_request = ServerPublicKeyCredential.new(conn.body_params)
 
+    attestation_object =
+      case Base.url_decode64(registration_request.response.attestationObject, padding: false) do
+        {:ok, decoded} -> decoded
+        :error ->
+          raise WaxAPIREST.Types.Error.InvalidField,
+            field: "attestationObject",
+            value: registration_request.response.attestationObject,
+            reason: "invalid base64url encoding"
+      end
+
+    client_data_json =
+      case Base.url_decode64(registration_request.response.clientDataJSON, padding: false) do
+        {:ok, decoded} -> decoded
+        :error ->
+          raise WaxAPIREST.Types.Error.InvalidField,
+            field: "clientDataJSON",
+            value: registration_request.response.clientDataJSON,
+            reason: "invalid base64url encoding"
+      end
+
     Wax.register(
-      Base.url_decode64!(registration_request.response.attestationObject, padding: false),
-      Base.url_decode64!(registration_request.response.clientDataJSON, padding: false),
+      attestation_object,
+      client_data_json,
       challenge
     )
     |> case do
@@ -191,11 +211,41 @@ defmodule WaxAPIREST.Plug do
 
     authn_request = ServerPublicKeyCredential.new(conn.body_params)
 
+    authenticator_data =
+      case Base.url_decode64(authn_request.response.authenticatorData, padding: false) do
+        {:ok, decoded} -> decoded
+        :error ->
+          raise WaxAPIREST.Types.Error.InvalidField,
+            field: "authenticatorData",
+            value: authn_request.response.authenticatorData,
+            reason: "invalid base64url encoding"
+      end
+
+    signature =
+      case Base.url_decode64(authn_request.response.signature, padding: false) do
+        {:ok, decoded} -> decoded
+        :error ->
+          raise WaxAPIREST.Types.Error.InvalidField,
+            field: "signature",
+            value: authn_request.response.signature,
+            reason: "invalid base64url encoding"
+      end
+
+    client_data_json =
+      case Base.url_decode64(authn_request.response.clientDataJSON, padding: false) do
+        {:ok, decoded} -> decoded
+        :error ->
+          raise WaxAPIREST.Types.Error.InvalidField,
+            field: "clientDataJSON",
+            value: authn_request.response.clientDataJSON,
+            reason: "invalid base64url encoding"
+      end
+
     Wax.authenticate(
       authn_request.rawId,
-      Base.url_decode64!(authn_request.response.authenticatorData, padding: false),
-      Base.url_decode64!(authn_request.response.signature, padding: false),
-      Base.url_decode64!(authn_request.response.clientDataJSON, padding: false),
+      authenticator_data,
+      signature,
+      client_data_json,
       challenge
     )
     |> case do
