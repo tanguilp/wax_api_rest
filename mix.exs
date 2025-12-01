@@ -25,10 +25,10 @@ defmodule WaxAPIREST.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:dialyxir, "~> 1.0.0-rc.4", only: [:dev], runtime: false},
-      {:ex_doc, "~> 0.19", only: :dev, runtime: false},
-      {:plug, "~> 1.0"},
-      {:wax_, "~> 0.6.0"}
+      {:dialyxir, "~> 1.4.7", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.39.0", only: :dev, runtime: false},
+      {:plug, "~> 1.18.0"},
+      {:wax_, "~> 0.7.0"}
     ]
   end
 
