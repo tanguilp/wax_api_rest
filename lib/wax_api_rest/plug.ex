@@ -80,10 +80,13 @@ defmodule WaxAPIREST.Plug do
   - in the configuration file (under the `WaxAPIREST` key)
   """
   @type opt ::
-          {:callback_module, module()}
-          | {:rp_name, String.t()}
-          | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
-          | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
+  {:callback_module, module()}
+  | {:rp_name, String.t()}
+  | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
+  | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
+
+  # Maximum lengths for input validation (security: prevent DoS via large inputs)
+  @max_base64_string_length 65536  # ~64KB for base64-encoded data
 
   plug(:match)
   plug(:dispatch, builder_opts())
@@ -130,6 +133,21 @@ defmodule WaxAPIREST.Plug do
     challenge = callback_module.get_challenge(conn)
 
     registration_request = ServerPublicKeyCredential.new(conn.body_params)
+
+    # Validate input sizes to prevent DoS attacks
+    if byte_size(registration_request.response.attestationObject) > @max_base64_string_length do
+      raise WaxAPIREST.Types.Error.InvalidField,
+        field: "attestationObject",
+        value: registration_request.response.attestationObject,
+        reason: "exceeds maximum length of #{@max_base64_string_length} bytes"
+    end
+
+    if byte_size(registration_request.response.clientDataJSON) > @max_base64_string_length do
+      raise WaxAPIREST.Types.Error.InvalidField,
+        field: "clientDataJSON",
+        value: registration_request.response.clientDataJSON,
+        reason: "exceeds maximum length of #{@max_base64_string_length} bytes"
+    end
 
     attestation_object =
       case Base.url_decode64(registration_request.response.attestationObject, padding: false) do
@@ -215,6 +233,28 @@ defmodule WaxAPIREST.Plug do
     challenge = callback_module.get_challenge(conn)
 
     authn_request = ServerPublicKeyCredential.new(conn.body_params)
+
+    # Validate input sizes to prevent DoS attacks
+    if byte_size(authn_request.response.authenticatorData) > @max_base64_string_length do
+      raise WaxAPIREST.Types.Error.InvalidField,
+        field: "authenticatorData",
+        value: authn_request.response.authenticatorData,
+        reason: "exceeds maximum length of #{@max_base64_string_length} bytes"
+    end
+
+    if byte_size(authn_request.response.signature) > @max_base64_string_length do
+      raise WaxAPIREST.Types.Error.InvalidField,
+        field: "signature",
+        value: authn_request.response.signature,
+        reason: "exceeds maximum length of #{@max_base64_string_length} bytes"
+    end
+
+    if byte_size(authn_request.response.clientDataJSON) > @max_base64_string_length do
+      raise WaxAPIREST.Types.Error.InvalidField,
+        field: "clientDataJSON",
+        value: authn_request.response.clientDataJSON,
+        reason: "exceeds maximum length of #{@max_base64_string_length} bytes"
+    end
 
     authenticator_data =
       case Base.url_decode64(authn_request.response.authenticatorData, padding: false) do
