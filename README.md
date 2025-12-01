@@ -88,3 +88,31 @@ For instance, using Phoenix:
     end
 
 See `t:WaxAPIREST.Plug.opt/0` for more information, including option precedence rules.
+
+## Security Considerations
+
+### Rate Limiting
+
+**Important**: This library does not implement rate limiting. Applications using this
+library **must** implement rate limiting to prevent:
+
+- Brute-force authentication attempts
+- Challenge generation spam
+- Resource exhaustion attacks
+
+Consider using libraries like `PlugAttack` or similar rate limiting solutions:
+
+```elixir
+defmodule MyApp.Router do
+  use Phoenix.Router
+
+  # Add rate limiting before forwarding to WaxAPIREST.Plug
+  forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
+end
+```
+
+Recommended rate limits:
+- Challenge generation endpoints (`/attestation/options`, `/assertion/options`): 
+  Limit to reasonable per-user/IP rates (e.g., 10 requests per minute)
+- Authentication/registration endpoints (`/attestation/result`, `/assertion/result`):
+  Limit to prevent brute-force attacks (e.g., 5 attempts per minute per credential)
