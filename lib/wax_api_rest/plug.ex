@@ -280,7 +280,7 @@ defmodule WaxAPIREST.Plug do
         end
 
       {:error, e} ->
-        send_json(conn, 400, %{"status" => "failed", "errorMessage" => Exception.message(e)})
+        send_json(conn, 400, %{"status" => "failed", "errorMessage" => sanitize_error_message(e)})
     end
   end
 
@@ -328,13 +328,28 @@ defmodule WaxAPIREST.Plug do
 
   @spec error(Plug.Conn.t(), Exception.t() | any()) :: Plug.Conn.t()
   defp error(conn, error) do
+    # Sanitize error messages to prevent information disclosure
+    # Only expose user-safe error messages; detailed errors are logged server-side
     message =
       case error do
+        %WaxAPIREST.Types.Error.MissingField{field: field} ->
+          "missing mandatory field `#{sanitize_field_name(field)}`"
+
+        %WaxAPIREST.Types.Error.InvalidField{field: field, reason: reason} when not is_nil(reason) ->
+          "invalid field `#{sanitize_field_name(field)}`: #{sanitize_reason(reason)}"
+
+        %WaxAPIREST.Types.Error.InvalidField{field: field, accepted_value: accepted_value} when is_list(accepted_value) ->
+          "invalid field `#{sanitize_field_name(field)}`, must be one of: #{Enum.join(accepted_value, ", ")}"
+
+        %WaxAPIREST.Types.Error.InvalidField{field: field} ->
+          "invalid field `#{sanitize_field_name(field)}`"
+
         %_{} ->
-          Exception.message(error)
+          # For other exceptions, use a generic message to avoid leaking internal details
+          "request validation failed"
 
         _ ->
-          to_string(error)
+          "request validation failed"
       end
 
     resp =
@@ -344,6 +359,52 @@ defmodule WaxAPIREST.Plug do
     conn
     |> Plug.Conn.put_resp_content_type("application/json")
     |> Plug.Conn.send_resp(400, resp)
+  end
+
+  # Sanitize field names to prevent injection of malicious content
+  defp sanitize_field_name(field) when is_binary(field) do
+    # Remove any non-printable characters and limit length
+    field
+    |> String.replace(~r/[^\x20-\x7E]/, "")
+    |> String.slice(0, 100)
+  end
+
+  defp sanitize_field_name(_), do: "field"
+
+  # Sanitize reason strings to prevent information disclosure
+  defp sanitize_reason(reason) when is_binary(reason) do
+    # Remove any non-printable characters and limit length
+    reason
+    |> String.replace(~r/[^\x20-\x7E]/, "")
+    |> String.slice(0, 200)
+  end
+
+  defp sanitize_reason(_), do: "invalid value"
+
+  # Sanitize error messages from external libraries to prevent information disclosure
+  defp sanitize_error_message(error) do
+    case error do
+      %WaxAPIREST.Types.Error.MissingField{} = e ->
+        # Use the error function for our own error types
+        error(%Plug.Conn{}, e)
+        |> Map.get(:resp_body)
+        |> Jason.decode!()
+        |> Map.get("errorMessage")
+
+      %WaxAPIREST.Types.Error.InvalidField{} = e ->
+        # Use the error function for our own error types
+        error(%Plug.Conn{}, e)
+        |> Map.get(:resp_body)
+        |> Jason.decode!()
+        |> Map.get("errorMessage")
+
+      %_{} ->
+        # For other exceptions, use a generic message to avoid leaking internal details
+        "authentication failed"
+
+      _ ->
+        "authentication failed"
+    end
   end
 
   @spec callback_module(opts()) :: module()
