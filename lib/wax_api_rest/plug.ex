@@ -80,13 +80,14 @@ defmodule WaxAPIREST.Plug do
   - in the configuration file (under the `WaxAPIREST` key)
   """
   @type opt ::
-  {:callback_module, module()}
-  | {:rp_name, String.t()}
-  | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
-  | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
+          {:callback_module, module()}
+          | {:rp_name, String.t()}
+          | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
+          | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
 
   # Maximum lengths for input validation (security: prevent DoS via large inputs)
-  @max_base64_string_length 65536  # ~64KB for base64-encoded data
+  # ~64KB for base64-encoded data
+  @max_base64_string_length 65536
 
   plug(:match)
   plug(:dispatch, builder_opts())
@@ -377,10 +378,12 @@ defmodule WaxAPIREST.Plug do
         %WaxAPIREST.Types.Error.MissingField{field: field} ->
           "missing mandatory field `#{sanitize_field_name(field)}`"
 
-        %WaxAPIREST.Types.Error.InvalidField{field: field, reason: reason} when not is_nil(reason) ->
+        %WaxAPIREST.Types.Error.InvalidField{field: field, reason: reason}
+        when not is_nil(reason) ->
           "invalid field `#{sanitize_field_name(field)}`: #{sanitize_reason(reason)}"
 
-        %WaxAPIREST.Types.Error.InvalidField{field: field, accepted_value: accepted_value} when is_list(accepted_value) ->
+        %WaxAPIREST.Types.Error.InvalidField{field: field, accepted_value: accepted_value}
+        when is_list(accepted_value) ->
           "invalid field `#{sanitize_field_name(field)}`, must be one of: #{Enum.join(accepted_value, ", ")}"
 
         %WaxAPIREST.Types.Error.InvalidField{field: field} ->

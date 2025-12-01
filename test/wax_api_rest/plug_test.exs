@@ -75,9 +75,11 @@ defmodule WaxAPIREST.Callback.Test do
       [{_, challenge_binary, timestamp}] ->
         # Check challenge expiration (5 minute timeout)
         current_time = System.system_time(:second)
+
         if current_time - timestamp > 300 do
           raise "challenge expired"
         end
+
         :erlang.binary_to_term(challenge_binary)
 
       [] ->

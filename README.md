@@ -112,7 +112,7 @@ end
 ```
 
 Recommended rate limits:
-- Challenge generation endpoints (`/attestation/options`, `/assertion/options`): 
+- Challenge generation endpoints (`/attestation/options`, `/assertion/options`):
   Limit to reasonable per-user/IP rates (e.g., 10 requests per minute)
 - Authentication/registration endpoints (`/attestation/result`, `/assertion/result`):
   Limit to prevent brute-force attacks (e.g., 5 attempts per minute per credential)
@@ -131,7 +131,7 @@ defmodule MyApp.Router do
 
   # Add CSRF protection
   plug :protect_from_forgery
-  
+
   forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
 end
 ```
