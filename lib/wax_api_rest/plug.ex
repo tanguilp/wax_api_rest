@@ -162,12 +162,13 @@ defmodule WaxAPIREST.Plug do
     )
     |> case do
       {:ok, {authenticator_data, attestation_result}} ->
-        callback_module.register_key(
-          conn,
+        conn
+        |> callback_module.register_key(
           registration_request.rawId,
           authenticator_data,
           attestation_result
         )
+        |> callback_module.invalidate_challenge()
         |> send_json(200, %{
           "status" => "ok",
           "errorMessage" => ""
@@ -263,11 +264,12 @@ defmodule WaxAPIREST.Plug do
         user_keys = callback_module.user_keys(conn)
 
         if sign_count_valid?(authn_request.rawId, authenticator_data, user_keys) do
-          callback_module.on_authentication_success(
-            conn,
+          conn
+          |> callback_module.on_authentication_success(
             authn_request.rawId,
             authenticator_data
           )
+          |> callback_module.invalidate_challenge()
           |> send_json(200, %{
             "status" => "ok",
             "errorMessage" => ""

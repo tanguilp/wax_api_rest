@@ -79,6 +79,18 @@ defmodule WaxAPIREST.Callback.Test do
   end
 
   @impl WaxAPIREST.Callback
+  def invalidate_challenge(conn) do
+    cookie = get_cookie(conn, "fido_test_suite")
+
+    if cookie do
+      cookie_hash = :crypto.hash(:sha256, cookie) |> Base.url_encode64()
+      :ets.delete(@table_name, cookie_hash <> "_challenge")
+    end
+
+    conn
+  end
+
+  @impl WaxAPIREST.Callback
   def register_key(conn, credential_id, authenticator_data, _attestation_result) do
     cookie = get_cookie(conn, "fido_test_suite")
 

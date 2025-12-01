@@ -88,6 +88,18 @@ defmodule WaxAPIREST.Callback do
   @callback get_challenge(conn :: Plug.Conn.t()) :: Wax.Challenge.t() | no_return()
 
   @doc """
+  Invalidates the current challenge to prevent replay attacks
+
+  This callback is called after successful authentication or registration to ensure
+  that challenges cannot be reused. Challenges MUST be invalidated after use to prevent
+  replay attacks.
+
+  If a fault occurs an exception can be raised. Its error message will be displayed in the
+  JSON error response.
+  """
+  @callback invalidate_challenge(conn :: Plug.Conn.t()) :: Plug.Conn.t() | no_return()
+
+  @doc """
   Saves a new attestation key for a user
 
   The COSE key can be retrieved in the authenticator data using:
