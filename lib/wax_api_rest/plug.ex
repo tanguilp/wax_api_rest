@@ -80,14 +80,14 @@ defmodule WaxAPIREST.Plug do
   - in the configuration file (under the `WaxAPIREST` key)
   """
   @type opt ::
-  {:callback_module, module()}
-  | {:rp_name, String.t()}
-  | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
-  | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
+          {:callback_module, module()}
+          | {:rp_name, String.t()}
+          | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
+          | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
 
-  plug :match
-  plug :dispatch, builder_opts()
-  plug Plug.Parsers, parsers: [:json], json_decoder: Jason
+  plug(:match)
+  plug(:dispatch, builder_opts())
+  plug(Plug.Parsers, parsers: [:json], json_decoder: Jason)
 
   post "/attestation/options" do
     callback_module = callback_module(opts)
@@ -103,22 +103,21 @@ defmodule WaxAPIREST.Plug do
 
     exclude_credentials =
       callback_module.user_keys(conn)
-      |> Enum.map(
-        fn
-          {key_id, %{transports: transports}} ->
-            ServerPublicKeyCredentialDescriptor.new(key_id, transports)
+      |> Enum.map(fn
+        {key_id, %{transports: transports}} ->
+          ServerPublicKeyCredentialDescriptor.new(key_id, transports)
 
-          {key_id, _} ->
-            ServerPublicKeyCredentialDescriptor.new(key_id)
-        end
+        {key_id, _} ->
+          ServerPublicKeyCredentialDescriptor.new(key_id)
+      end)
+
+    response =
+      ServerPublicKeyCredentialCreationOptionsResponse.new(
+        creation_request,
+        challenge,
+        user_info,
+        Keyword.put(opts, :exclude_credentials, exclude_credentials)
       )
-
-    response = ServerPublicKeyCredentialCreationOptionsResponse.new(
-      creation_request,
-      challenge,
-      user_info,
-      Keyword.put(opts, :exclude_credentials, exclude_credentials)
-    )
 
     conn
     |> callback_module.put_challenge(challenge)
@@ -134,7 +133,9 @@ defmodule WaxAPIREST.Plug do
 
     attestation_object =
       case Base.url_decode64(registration_request.response.attestationObject, padding: false) do
-        {:ok, decoded} -> decoded
+        {:ok, decoded} ->
+          decoded
+
         :error ->
           raise WaxAPIREST.Types.Error.InvalidField,
             field: "attestationObject",
@@ -144,7 +145,9 @@ defmodule WaxAPIREST.Plug do
 
     client_data_json =
       case Base.url_decode64(registration_request.response.clientDataJSON, padding: false) do
-        {:ok, decoded} -> decoded
+        {:ok, decoded} ->
+          decoded
+
         :error ->
           raise WaxAPIREST.Types.Error.InvalidField,
             field: "clientDataJSON",
@@ -192,12 +195,13 @@ defmodule WaxAPIREST.Plug do
 
     challenge = Wax.new_authentication_challenge(challenge_opts)
 
-    response = ServerPublicKeyCredentialGetOptionsResponse.new(
-      creation_request,
-      challenge,
-      Enum.map(allow_credentials, fn {key_id, _} -> key_id end),
-      opts
-    )
+    response =
+      ServerPublicKeyCredentialGetOptionsResponse.new(
+        creation_request,
+        challenge,
+        Enum.map(allow_credentials, fn {key_id, _} -> key_id end),
+        opts
+      )
 
     conn
     |> callback_module.put_challenge(challenge)
@@ -213,7 +217,9 @@ defmodule WaxAPIREST.Plug do
 
     authenticator_data =
       case Base.url_decode64(authn_request.response.authenticatorData, padding: false) do
-        {:ok, decoded} -> decoded
+        {:ok, decoded} ->
+          decoded
+
         :error ->
           raise WaxAPIREST.Types.Error.InvalidField,
             field: "authenticatorData",
@@ -223,7 +229,9 @@ defmodule WaxAPIREST.Plug do
 
     signature =
       case Base.url_decode64(authn_request.response.signature, padding: false) do
-        {:ok, decoded} -> decoded
+        {:ok, decoded} ->
+          decoded
+
         :error ->
           raise WaxAPIREST.Types.Error.InvalidField,
             field: "signature",
@@ -233,7 +241,9 @@ defmodule WaxAPIREST.Plug do
 
     client_data_json =
       case Base.url_decode64(authn_request.response.clientDataJSON, padding: false) do
-        {:ok, decoded} -> decoded
+        {:ok, decoded} ->
+          decoded
+
         :error ->
           raise WaxAPIREST.Types.Error.InvalidField,
             field: "clientDataJSON",
@@ -275,10 +285,10 @@ defmodule WaxAPIREST.Plug do
   end
 
   @spec sign_count_valid?(
-    Wax.CredentialId.t(),
-    Wax.AuthenticatorData.t(),
-    WaxAPIREST.Callback.user_keys()
-  ) :: boolean()
+          Wax.CredentialId.t(),
+          Wax.AuthenticatorData.t(),
+          WaxAPIREST.Callback.user_keys()
+        ) :: boolean()
   defp sign_count_valid?(raw_id, authenticator_data, user_keys) do
     saved_sign_count =
       Enum.find_value(
@@ -287,15 +297,19 @@ defmodule WaxAPIREST.Plug do
           {^raw_id, %{sign_count: sign_count}} ->
             sign_count
 
-          _ -> false
+          _ ->
+            false
         end
       )
 
     new_sign_count = authenticator_data.sign_count
 
-    if saved_sign_count != nil and saved_sign_count > 0 or new_sign_count > 0 do
-      new_sign_count > saved_sign_count
+    # If we have a saved sign count > 0, or the new sign count > 0, validate strictly
+    if (saved_sign_count != nil and saved_sign_count > 0) or new_sign_count > 0 do
+      # Compare against saved count, defaulting to 0 if nil
+      new_sign_count > (saved_sign_count || 0)
     else
+      # If both are 0 or nil, allow (for authenticators that don't support sign count)
       true
     end
   end
@@ -334,20 +348,21 @@ defmodule WaxAPIREST.Plug do
 
   @spec callback_module(opts()) :: module()
   def callback_module(opts) do
-    opts[:callback_module]
-    || Application.get_env(WaxAPIREST, :callback_module)
-    || raise "callback module not configured"
+    opts[:callback_module] ||
+      Application.get_env(WaxAPIREST, :callback_module) ||
+      raise "callback module not configured"
   end
 
-  defimpl Jason.Encoder, for: [
-    AuthenticatorSelectionCriteria,
-    PubKeyCredParams,
-    PublicKeyCredentialRpEntity,
-    ServerPublicKeyCredentialCreationOptionsResponse,
-    ServerPublicKeyCredentialDescriptor,
-    ServerPublicKeyCredentialGetOptionsResponse,
-    ServerPublicKeyCredentialUserEntity
-  ] do
+  defimpl Jason.Encoder,
+    for: [
+      AuthenticatorSelectionCriteria,
+      PubKeyCredParams,
+      PublicKeyCredentialRpEntity,
+      ServerPublicKeyCredentialCreationOptionsResponse,
+      ServerPublicKeyCredentialDescriptor,
+      ServerPublicKeyCredentialGetOptionsResponse,
+      ServerPublicKeyCredentialUserEntity
+    ] do
     def encode(struct, opts) do
       struct
       |> Map.from_struct()
