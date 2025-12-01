@@ -116,3 +116,25 @@ Recommended rate limits:
   Limit to reasonable per-user/IP rates (e.g., 10 requests per minute)
 - Authentication/registration endpoints (`/attestation/result`, `/assertion/result`):
   Limit to prevent brute-force attacks (e.g., 5 attempts per minute per credential)
+
+### CSRF Protection
+
+While WebAuthn responses are cryptographically signed and validated, applications should
+still implement CSRF protection if using cookie-based sessions. This provides defense in
+depth and protects against potential implementation vulnerabilities.
+
+Consider using CSRF token protection for POST endpoints:
+
+```elixir
+defmodule MyApp.Router do
+  use Phoenix.Router
+
+  # Add CSRF protection
+  plug :protect_from_forgery
+  
+  forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
+end
+```
+
+Note: CSRF protection is especially important if your application uses cookie-based
+session management for challenge storage or user identification.
