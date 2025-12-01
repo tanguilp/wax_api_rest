@@ -57,7 +57,9 @@ defmodule WaxAPIREST.Callback.Test do
     if cookie do
       cookie_hash = :crypto.hash(:sha256, cookie) |> Base.url_encode64()
       challenge_binary = :erlang.term_to_binary(challenge)
-      :ets.insert(@table_name, {cookie_hash <> "_challenge", challenge_binary})
+      # Store challenge with timestamp for expiration checking (5 minute timeout)
+      timestamp = System.system_time(:second)
+      :ets.insert(@table_name, {cookie_hash <> "_challenge", challenge_binary, timestamp})
     end
 
     conn
@@ -70,7 +72,12 @@ defmodule WaxAPIREST.Callback.Test do
     cookie_hash = :crypto.hash(:sha256, cookie) |> Base.url_encode64()
 
     case :ets.lookup(@table_name, cookie_hash <> "_challenge") do
-      [{_, challenge_binary}] ->
+      [{_, challenge_binary, timestamp}] ->
+        # Check challenge expiration (5 minute timeout)
+        current_time = System.system_time(:second)
+        if current_time - timestamp > 300 do
+          raise "challenge expired"
+        end
         :erlang.binary_to_term(challenge_binary)
 
       [] ->
