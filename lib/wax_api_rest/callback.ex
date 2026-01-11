@@ -71,6 +71,10 @@ defmodule WaxAPIREST.Callback do
   @doc """
   Save the current attestation or authentication challenge and returns the connection
 
+  **Security**: Challenges MUST be stored with a timestamp and expired after a reasonable
+  timeout (recommended: 5 minutes). The `get_challenge/1` callback should validate expiration
+  before returning challenges.
+
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
@@ -82,10 +86,26 @@ defmodule WaxAPIREST.Callback do
   @doc """
   Returns the current challenge
 
+  **Security**: Challenges MUST be expired after a reasonable timeout (recommended: 5 minutes).
+  This callback should validate that the challenge has not expired before returning it.
+  Expired challenges should raise an exception to prevent replay attacks.
+
+  If a fault occurs or the challenge has expired, an exception can be raised. Its error
+  message will be displayed in the JSON error response.
+  """
+  @callback get_challenge(conn :: Plug.Conn.t()) :: Wax.Challenge.t() | no_return()
+
+  @doc """
+  Invalidates the current challenge to prevent replay attacks
+
+  This callback is called after successful authentication or registration to ensure
+  that challenges cannot be reused. Challenges MUST be invalidated after use to prevent
+  replay attacks.
+
   If a fault occurs an exception can be raised. Its error message will be displayed in the
   JSON error response.
   """
-  @callback get_challenge(conn :: Plug.Conn.t()) :: Wax.Challenge.t() | no_return()
+  @callback invalidate_challenge(conn :: Plug.Conn.t()) :: Plug.Conn.t() | no_return()
 
   @doc """
   Saves a new attestation key for a user

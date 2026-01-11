@@ -25,6 +25,9 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredential do
     getClientExtensionResults: map() | nil
   }
 
+  # Maximum lengths for input validation (security: prevent DoS via large inputs)
+  @max_credential_id_length 1024
+
   @spec new(map()) :: t() | no_return()
   def new(%{
     "id" => id,
@@ -36,6 +39,14 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredential do
     is_binary(rawId) and
     id == rawId
   do
+    # Validate credential ID size
+    if byte_size(id) > @max_credential_id_length do
+      raise Error.InvalidField,
+        field: "id",
+        value: id,
+        reason: "exceeds maximum length of #{@max_credential_id_length} bytes"
+    end
+
     case Base.url_decode64(id, padding: false) do
       {:ok, _} ->
         :ok

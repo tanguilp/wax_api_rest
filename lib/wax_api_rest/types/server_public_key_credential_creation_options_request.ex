@@ -23,10 +23,29 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialCreationOptionsRequest do
     attestation: AttestationConveyancePreference.t() | nil
   }
 
+  # Maximum lengths for input validation (security: prevent DoS via large inputs)
+  @max_username_length 256
+  @max_display_name_length 256
+
   @spec new(map()) :: t() | no_return()
   def new(%{"username" => username, "displayName" => displayName} = request)
     when is_binary(username) and is_binary(displayName)
   do
+    # Validate input sizes to prevent DoS attacks
+    if byte_size(username) > @max_username_length do
+      raise Error.InvalidField,
+        field: "username",
+        value: username,
+        reason: "exceeds maximum length of #{@max_username_length} bytes"
+    end
+
+    if byte_size(displayName) > @max_display_name_length do
+      raise Error.InvalidField,
+        field: "displayName",
+        value: displayName,
+        reason: "exceeds maximum length of #{@max_display_name_length} bytes"
+    end
+
     authenticatorSelection =
       if request["authenticatorSelection"] do
         AuthenticatorSelectionCriteria.new(request["authenticatorSelection"])
