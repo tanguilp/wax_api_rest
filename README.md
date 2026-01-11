@@ -16,7 +16,7 @@ callback module.
 ```elixir
 def deps do
   [
-    {:wax_api_rest, "~> 0.4.0"}
+    {:wax_api_rest, "~> 0.5.0"}
   ]
 end
 ```
