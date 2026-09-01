@@ -216,6 +216,19 @@ defmodule WaxAPIREST.PlugTest do
     )
   end
 
+  defmodule AppRouterUserVerification do
+    use Plug.Router
+
+    plug(:match)
+    plug(:dispatch)
+
+    forward("/",
+      to: WaxAPIREST.Plug,
+      callback_module: WaxAPIREST.Callback.Test,
+      user_verification: "required"
+    )
+  end
+
   setup do
     WaxAPIREST.Callback.Test.setup_table()
     :ok
@@ -409,10 +422,9 @@ defmodule WaxAPIREST.PlugTest do
 
     assert conn.status == 400
 
-    assert %{"status" => "failed", "errorMessage" => error_message} =
+    # the raw Wax error message is not leaked to the client
+    assert %{"status" => "failed", "errorMessage" => "registration failed"} =
              Jason.decode!(conn.resp_body)
-
-    assert error_message =~ "user_not_verified"
 
     # no key has been registered
     cookie_hash = :crypto.hash(:sha256, "abcdef") |> Base.url_encode64()
@@ -602,9 +614,53 @@ defmodule WaxAPIREST.PlugTest do
              "errorMessage" => "",
              "challenge" => _,
              "userVerification" => "required",
-             # credential selection is entirely up to the user_keys/1 callback
-             "allowCredentials" => [%{"id" => "some-credential"}]
-           } = Jason.decode!(conn.resp_body)
+              # credential selection is entirely up to the user_keys/1 callback
+              "allowCredentials" => [%{"id" => "some-credential"}]
+            } = Jason.decode!(conn.resp_body)
+  end
+
+  test "configured user_verification overrides the request's on assertion options" do
+    conn =
+      conn(:post, "/assertion/options", %{"userVerification" => "discouraged"})
+      |> put_req_cookie("fido_test_suite", "abcdef")
+      |> put_resp_content_type("application/json")
+      |> AppRouterUserVerification.call([])
+
+    # the enforced value is advertised in the response...
+    assert %{"status" => "ok", "userVerification" => "required"} =
+             Jason.decode!(conn.resp_body)
+
+    # ...and set on the challenge, so Wax.authenticate/6 enforces it
+    assert %Wax.Challenge{user_verification: "required"} = stored_challenge("abcdef")
+  end
+
+  test "configured user_verification from the application environment overrides the request's" do
+    Application.put_env(WaxAPIREST, :user_verification, "required")
+    on_exit(fn -> Application.delete_env(WaxAPIREST, :user_verification) end)
+
+    conn =
+      conn(:post, "/assertion/options", %{"userVerification" => "discouraged"})
+      |> put_req_cookie("fido_test_suite", "abcdef")
+      |> put_resp_content_type("application/json")
+      |> AppRouter.call([])
+
+    assert %{"status" => "ok", "userVerification" => "required"} =
+             Jason.decode!(conn.resp_body)
+
+    assert %Wax.Challenge{user_verification: "required"} = stored_challenge("abcdef")
+  end
+
+  test "the request's userVerification is used when none is configured" do
+    conn =
+      conn(:post, "/assertion/options", %{"userVerification" => "discouraged"})
+      |> put_req_cookie("fido_test_suite", "abcdef")
+      |> put_resp_content_type("application/json")
+      |> AppRouter.call([])
+
+    assert %{"status" => "ok", "userVerification" => "discouraged"} =
+             Jason.decode!(conn.resp_body)
+
+    assert %Wax.Challenge{user_verification: "discouraged"} = stored_challenge("abcdef")
   end
 
   test "authentication" do
