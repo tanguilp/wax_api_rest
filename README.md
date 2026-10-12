@@ -16,7 +16,7 @@ callback module.
 ```elixir
 def deps do
   [
-    {:wax_api_rest, "~> 0.5.0"}
+    {:wax_api_rest, "~> 1.0"}
   ]
 end
 ```
@@ -29,7 +29,7 @@ In a Phoenix router, forward a route to the `WaxAPIREST.Plug`:
 defmodule MyApp.Router do
   use Phoenix.Router
 
-  forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
+  forward "/webauthn", WaxAPIREST.Plug, callback_module: MyApp.WebAuthnCallbackModule
 end
 ```
 
@@ -39,7 +39,7 @@ If you're using `Plug.Router`:
 defmodule MyApp.Router do
   use Plug.Router
 
-  forward "/webauthn", to: WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
+  forward "/webauthn", to: WaxAPIREST.Plug, callback_module: MyApp.WebAuthnCallbackModule
 end
 ```
 
@@ -74,6 +74,19 @@ values have been chosen using the following security analysis:
 [Security Concerns Surrounding WebAuthn: Don't Implement ECDAA (Yet)](https://paragonie.com/blog/2018/08/security-concerns-surrounding-webauthn-don-t-implement-ecdaa-yet)
 - `:attestation_conveyance_preference`: the attestation conveyance preference. Defaults to
 the value of the request or, if absent, to `"none"`
+- `:authenticator_selection`: the [authenticator selection criteria](https://www.w3.org/TR/webauthn/#dictdef-authenticatorselectioncriteria)
+enforced by the server, either as a `t:WaxAPIREST.Types.AuthenticatorSelectionCriteria.t/0`
+struct or as a map with string keys (for instance
+`%{"residentKey" => "required", "userVerification" => "required"}`). When set, it takes
+precedence over the value of the request. Its `userVerification` member is also enforced
+by `Wax.register/3` when verifying the attestation result. Defaults to the value of the
+request
+- `:user_verification`: the user verification requirement (`"discouraged"`, `"preferred"`
+or `"required"`) for the **authentication** ceremony. When set, it takes precedence over
+the value of the request, so that a client cannot downgrade a `"required"` policy; it is
+enforced by `Wax.authenticate/6` when verifying the assertion result. Defaults to the
+value of the request or, if absent, to `"preferred"`. For the registration ceremony, use
+the `userVerification` member of the `:authenticator_selection` option instead
 
 For instance, using Phoenix:
 
@@ -107,7 +120,7 @@ defmodule MyApp.Router do
   use Phoenix.Router
 
   # Add rate limiting before forwarding to WaxAPIREST.Plug
-  forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
+  forward "/webauthn", WaxAPIREST.Plug, callback_module: MyApp.WebAuthnCallbackModule
 end
 ```
 
@@ -132,7 +145,7 @@ defmodule MyApp.Router do
   # Add CSRF protection
   plug :protect_from_forgery
 
-  forward "/webauthn", WaxAPIREST.Plug, callback: MyApp.WebAuthnCallbackModule
+  forward "/webauthn", WaxAPIREST.Plug, callback_module: MyApp.WebAuthnCallbackModule
 end
 ```
 

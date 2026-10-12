@@ -5,7 +5,7 @@ defmodule WaxAPIREST.MixProject do
     [
       app: :wax_api_rest,
       description: "FIDO2 / WebAuthn server REST API library",
-      version: "0.6.0",
+      version: "1.0.0",
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
