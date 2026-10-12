@@ -47,6 +47,8 @@ defmodule WaxAPIREST.Plug do
   use Plug.Router, copy_opts_to_assign: :init_opts
   use Plug.ErrorHandler
 
+  require Logger
+
   alias WaxAPIREST.Types.{
     AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
@@ -58,7 +60,8 @@ defmodule WaxAPIREST.Plug do
     ServerPublicKeyCredentialDescriptor,
     ServerPublicKeyCredentialGetOptionsRequest,
     ServerPublicKeyCredentialGetOptionsResponse,
-    ServerPublicKeyCredentialUserEntity
+    ServerPublicKeyCredentialUserEntity,
+    UserVerificationRequirement
   }
 
   @type opts :: [Wax.opt() | opt()]
@@ -99,6 +102,7 @@ defmodule WaxAPIREST.Plug do
           | {:pub_key_cred_params, [Wax.CoseKey.cose_alg()]}
           | {:attestation_conveyance_preference, AttestationConveyancePreference.t()}
           | {:authenticator_selection, AuthenticatorSelectionCriteria.t() | map()}
+          | {:user_verification, UserVerificationRequirement.t()}
 
   # Maximum lengths for input validation (security: prevent DoS via large inputs)
   # ~64KB for base64-encoded data
@@ -125,8 +129,11 @@ defmodule WaxAPIREST.Plug do
     # same authenticator selection criteria the challenge was created with
     opts = Keyword.put(opts, :authenticator_selection, authenticator_selection)
 
+    # `:user_verification` applies to the authentication ceremony only; the
+    # registration ceremony is configured through `:authenticator_selection`
     challenge =
       opts
+      |> Keyword.delete(:user_verification)
       |> Keyword.put(:attestation, creation_request.attestation)
       |> put_user_verification(authenticator_selection)
       |> Wax.new_registration_challenge()
@@ -223,7 +230,8 @@ defmodule WaxAPIREST.Plug do
           "errorMessage" => ""
         })
 
-      {:error, _} ->
+      {:error, e} ->
+        Logger.warning("WebAuthn registration failed: " <> Exception.message(e))
         send_json(conn, 400, %{"status" => "failed", "errorMessage" => "registration failed"})
     end
   end
@@ -239,13 +247,10 @@ defmodule WaxAPIREST.Plug do
     # the server's user verification configuration takes precedence over the
     # request's, so that a client cannot downgrade a `"required"` policy
     user_verification =
-      opts[:user_verification] ||
-        Application.get_env(WaxAPIREST, :user_verification) ||
-        creation_request.userVerification
-
-    # the resolved value is passed down so that the response advertises the exact
-    # same user verification requirement the challenge was created with
-    opts = Keyword.put(opts, :user_verification, user_verification)
+      (opts[:user_verification] ||
+         Application.get_env(WaxAPIREST, :user_verification) ||
+         creation_request.userVerification)
+      |> UserVerificationRequirement.new()
 
     allow_credentials =
       Enum.map(user_keys, fn {cred_id, %{cose_key: cose_key}} -> {cred_id, cose_key} end)
@@ -257,6 +262,8 @@ defmodule WaxAPIREST.Plug do
 
     challenge = Wax.new_authentication_challenge(challenge_opts)
 
+    # the response advertises `challenge.user_verification`, so it can never
+    # diverge from the requirement actually enforced by `Wax.authenticate/6`
     response =
       ServerPublicKeyCredentialGetOptionsResponse.new(
         creation_request,
@@ -371,7 +378,8 @@ defmodule WaxAPIREST.Plug do
           })
         end
 
-      {:error, _} ->
+      {:error, e} ->
+        Logger.warning("WebAuthn authentication failed: " <> Exception.message(e))
         send_json(conn, 400, %{"status" => "failed", "errorMessage" => "authentication failed"})
     end
   end

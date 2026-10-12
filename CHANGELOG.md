@@ -9,10 +9,15 @@
   application environment under the `WaxAPIREST` key) takes precedence, so a client
   cannot downgrade a `"required"` user verification policy at authentication time.
   The enforced value is set on the authentication challenge (and therefore verified
-  by `Wax.authenticate/6`) and advertised in the options response
+  by `Wax.authenticate/6`) and advertised in the options response. The configured
+  value is validated: an invalid value is rejected with a 400 error instead of
+  silently disabling enforcement. The option is scoped to the authentication
+  ceremony: it no longer leaks into registration challenges
 - `POST /attestation/result` no longer leaks internal error details: like
   `POST /assertion/result`, it now returns a generic `"registration failed"` error
   message instead of the raw `Wax` exception message
+- Failed registration and authentication ceremony results are now logged server-side
+  with `Logger` (the generic client-facing error message is kept)
 - `WaxAPIREST.Types.AuthenticatorTransport.new/1` no longer corrupts transport values by
   mapping them to attestation conveyance preference values (`"usb"` -> `"none"`,
   `"nfc"` -> `"indirect"`, etc.). Accepted values are returned verbatim and the accepted

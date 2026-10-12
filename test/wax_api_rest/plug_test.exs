@@ -229,6 +229,19 @@ defmodule WaxAPIREST.PlugTest do
     )
   end
 
+  defmodule AppRouterInvalidUserVerification do
+    use Plug.Router
+
+    plug(:match)
+    plug(:dispatch)
+
+    forward("/",
+      to: WaxAPIREST.Plug,
+      callback_module: WaxAPIREST.Callback.Test,
+      user_verification: "Required"
+    )
+  end
+
   setup do
     WaxAPIREST.Callback.Test.setup_table()
     :ok
@@ -614,9 +627,9 @@ defmodule WaxAPIREST.PlugTest do
              "errorMessage" => "",
              "challenge" => _,
              "userVerification" => "required",
-              # credential selection is entirely up to the user_keys/1 callback
-              "allowCredentials" => [%{"id" => "some-credential"}]
-            } = Jason.decode!(conn.resp_body)
+             # credential selection is entirely up to the user_keys/1 callback
+             "allowCredentials" => [%{"id" => "some-credential"}]
+           } = Jason.decode!(conn.resp_body)
   end
 
   test "configured user_verification overrides the request's on assertion options" do
@@ -643,6 +656,60 @@ defmodule WaxAPIREST.PlugTest do
       |> put_req_cookie("fido_test_suite", "abcdef")
       |> put_resp_content_type("application/json")
       |> AppRouter.call([])
+
+    assert %{"status" => "ok", "userVerification" => "required"} =
+             Jason.decode!(conn.resp_body)
+
+    assert %Wax.Challenge{user_verification: "required"} = stored_challenge("abcdef")
+  end
+
+  test "the user_verification plug option does not apply to the registration ceremony" do
+    request = %{"username" => "johndoe@example.com", "displayName" => "John Doe"}
+
+    conn =
+      conn(:post, "/attestation/options", request)
+      |> put_req_cookie("fido_test_suite", "abcdef")
+      |> put_resp_content_type("application/json")
+      |> AppRouterUserVerification.call([])
+
+    assert conn.status == 200
+
+    # the registration challenge keeps Wax's default, not the configured "required"
+    assert %Wax.Challenge{user_verification: "preferred"} = stored_challenge("abcdef")
+
+    # the option is not echoed as authenticator selection criteria either
+    refute Map.has_key?(Jason.decode!(conn.resp_body), "authenticatorSelection")
+  end
+
+  test "an invalid configured user_verification is rejected" do
+    conn =
+      conn(:post, "/assertion/options", %{"username" => "johndoe@example.com"})
+      |> put_req_cookie("fido_test_suite", "abcdef")
+      |> put_resp_content_type("application/json")
+
+    # `Plug.ErrorHandler` sends the sanitized error response, then re-raises
+    assert_raise Plug.Conn.WrapperError, ~r/invalid field `userVerification`/, fn ->
+      AppRouterInvalidUserVerification.call(conn, [])
+    end
+
+    assert {400, _headers, body} = sent_resp(conn)
+
+    assert %{
+             "status" => "failed",
+             "errorMessage" =>
+               "invalid field `userVerification`, must be one of: discouraged, preferred, required"
+           } = Jason.decode!(body)
+  end
+
+  test "the plug option takes precedence over the application environment" do
+    Application.put_env(WaxAPIREST, :user_verification, "discouraged")
+    on_exit(fn -> Application.delete_env(WaxAPIREST, :user_verification) end)
+
+    conn =
+      conn(:post, "/assertion/options", %{"username" => "johndoe@example.com"})
+      |> put_req_cookie("fido_test_suite", "abcdef")
+      |> put_resp_content_type("application/json")
+      |> AppRouterUserVerification.call([])
 
     assert %{"status" => "ok", "userVerification" => "required"} =
              Jason.decode!(conn.resp_body)
@@ -728,7 +795,7 @@ defmodule WaxAPIREST.PlugTest do
 
     assert %{
              "status" => "failed",
-             "errorMessage" => _
+             "errorMessage" => "authentication failed"
            } = Jason.decode!(conn.resp_body)
   end
 

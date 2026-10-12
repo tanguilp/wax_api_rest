@@ -33,7 +33,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
     [ServerPublicKeyCredentialDescriptor.flat()],
     Keyword.t()
   ) :: t()
-  def new(request, challenge, allow_credentials, opts) do
+  def new(request, challenge, allow_credentials, _opts) do
     allow_credentials = Enum.map(
       allow_credentials,
       fn
@@ -52,7 +52,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
       rpId: challenge.rp_id,
       extensions: request.extensions,
       allowCredentials: allow_credentials,
-      userVerification: opts[:user_verification] || request.userVerification
+      userVerification: challenge.user_verification
     }
   end
 end
