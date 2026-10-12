@@ -52,7 +52,7 @@ defmodule WaxAPIREST.Types.ServerPublicKeyCredentialGetOptionsResponse do
       rpId: challenge.rp_id,
       extensions: request.extensions,
       allowCredentials: allow_credentials,
-      userVerification: request.userVerification
+      userVerification: challenge.user_verification
     }
   end
 end
